@@ -170,6 +170,53 @@ def show_trailer(r):
         st.link_button('Search official trailer on YouTube', fallback)
 
 
+@st.cache_data(ttl=21600, show_spinner=False)
+def find_watch_providers(movie_id, _api_key):
+    url = f'https://api.themoviedb.org/3/movie/{movie_id}/watch/providers?' + urlencode({'api_key': _api_key})
+    with urlopen(Request(url, headers={'Accept': 'application/json'}), timeout=10) as response:
+        return json.load(response).get('results', {})
+
+
+def show_watch_providers(r):
+    st.subheader('Where to Watch')
+    countries = {'Canada':'CA', 'Peru':'PE', 'United States':'US', 'United Kingdom':'GB', 'Spain':'ES', 'Mexico':'MX', 'Colombia':'CO', 'Australia':'AU', 'France':'FR', 'Germany':'DE', 'Brazil':'BR', 'India':'IN'}
+    st.session_state.setdefault('watch_country', 'Canada')
+    country = st.selectbox('Country', list(countries), index=list(countries).index(st.session_state.watch_country), key=f'watch-country-{int(r.id)}')
+    st.session_state.watch_country = country
+    st.caption('Availability varies by country and may change.')
+    try:
+        api_key = st.secrets.get('TMDB_API_KEY', '')
+        if not api_key:
+            st.info('Watch provider service is not configured.')
+            return
+        with st.spinner('Checking streaming availability...'):
+            region = find_watch_providers(int(r.id), api_key).get(countries[country], {})
+    except (URLError, TimeoutError, ValueError, OSError, KeyError):
+        st.warning('Watch provider service is temporarily unavailable. Please try again later.')
+        return
+    found = False
+    for category, label in [('flatrate','Stream · Subscription'), ('free','Watch for free'), ('ads','Watch with ads'), ('rent','Rent'), ('buy','Buy')]:
+        providers = region.get(category, [])
+        if not providers:
+            continue
+        found = True
+        st.markdown(f'**{label}**')
+        for start in range(0, len(providers), 4):
+            batch = providers[start:start+4]
+            for col, provider in zip(st.columns(4), batch):
+                with col:
+                    logo = provider.get('logo_path') or ''
+                    if re.fullmatch(r'/[A-Za-z0-9_.-]+', logo):
+                        st.image('https://image.tmdb.org/t/p/w92' + logo, width=48)
+                    st.caption(provider.get('provider_name', 'Unknown provider'))
+    if not found:
+        st.info(f'No watch providers listed for {country}. This does not necessarily mean the movie is unavailable.')
+    link = region.get('link', '')
+    if isinstance(link, str) and link.startswith('https://www.themoviedb.org/'):
+        st.link_button('View viewing options on TMDB', link)
+    st.caption('Streaming availability provided by JustWatch via TMDB. Prices and direct playback links are not provided.')
+
+
 @st.dialog("Movie details", width="large")
 def movie_details(r, mood=None, reference=None, query=''):
     a,b=st.columns([1,2])
@@ -188,6 +235,7 @@ def movie_details(r, mood=None, reference=None, query=''):
     st.subheader('Overview')
     st.write(r.overview) if isinstance(r.overview,str) and r.overview.strip() else st.caption('Synopsis unavailable.')
     show_trailer(r)
+    show_watch_providers(r)
     if 'personal_score' in r and pd.notna(r.personal_score):
         st.subheader('Why this movie matches you')
         for label, key, weight in [('Content similarity','personal_content',50),('Mood compatibility','personal_mood',25),('Genre affinity','personal_genre',15),('Quality','personal_quality',10)]:
