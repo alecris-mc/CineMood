@@ -6,6 +6,7 @@ from pathlib import Path
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
 import engine as e
+from html import escape
 
 st.set_page_config(page_title='CineMood',page_icon='🎬',layout='wide')
 A=Path(__file__).parent/'assets'
@@ -58,7 +59,7 @@ st.sidebar.caption(f'Powered by TMDB • {len(df):,} movies')
 st.sidebar.caption(f'♡ {len(st.session_state.watchlist)} saved movies')
 page_intro = {
     'Discover': ('Discover your next favorite', 'Describe what you want to watch or refine your preferences.'),
-    'Mood Match': ('Find a movie for your mood', 'Choose the emotional experience you want to explore.'),
+    'Mood Match': ('How do you want to feel tonight?', 'Every feeling has a story.'),
     'Similar Movies': ('More movies like your favorites', 'Select a reference movie to explore related stories.'),
     'My Watchlist': ('Your personal collection', 'Keep your discoveries together during this session.'),
     'Compare': ('Compare your picks', 'Explore up to four movies side by side.'),
@@ -77,6 +78,76 @@ def toggle_watchlist(movie_id):
     else:
         st.session_state.watchlist.append(movie_id)
 
+
+@st.dialog("Movie details", width="large")
+def movie_details(r, mood=None, reference=None, query=''):
+    a,b=st.columns([1,2])
+    with a:
+        if isinstance(r.poster_url,str) and r.poster_url.startswith('https://'):
+            st.image(r.poster_url, use_container_width=True)
+    with b:
+        st.header(f'{r.title} ({r.year})')
+        st.caption(f'★ {r.vote_average:.1f}/10 · {r.runtime:g} min · {r.vote_count:,} votes')
+        meta=[str(x) for x in (r.certification,r.original_language) if pd.notna(x) and str(x).strip().lower() not in ('none','nan','')]
+        if meta: st.caption(' · '.join(meta))
+        st.write(' · '.join(r.genres))
+        if 'match_score' in r and pd.notna(r.match_score):
+            st.markdown(f':green[**{r.match_score:.1f}/100 Match index**]')
+        st.caption(f'Dominant mood: {r.dominant_mood}')
+    st.subheader('Overview')
+    st.write(r.overview) if isinstance(r.overview,str) and r.overview.strip() else st.caption('Synopsis unavailable.')
+    if 'match_score' in r and pd.notna(r.match_score):
+        st.subheader('Why this movie matches you')
+        for label,score,weight in [('Content similarity','content_score','content_weight'),('Mood compatibility','mood_score','mood_weight'),('Quality score','quality_score','quality_weight')]:
+            if r[weight]>0 and pd.notna(r[score]):
+                st.write(f'**{label}: {r[score]*100:.1f}/100** · Weight {r[weight]*100:.1f}%')
+                st.progress(float(np.clip(r[score],0,1)))
+        st.info(e.explain_recommendation(r,mood=mood,reference_title=None if query else reference).replace('Text similarity to your query','Combined reference and query similarity' if reference and query else 'Text similarity to your query'))
+    if 'sentiment_similarity' in r: st.caption(f'Plot sentiment similarity: {r.sentiment_similarity:.3f}')
+    st.subheader('Emotional profile')
+    for profile in e.MOOD_PROFILES:
+        value=r.get(f'mood_{profile}')
+        if pd.notna(value):
+            st.progress(float(np.clip(value,0,1)),text=f'{profile}: {value*100:.1f}/100')
+    st.caption('Estimated from plot metadata; not guaranteed viewer reactions.')
+    movie_id=int(r.id)
+    if st.button('Remove from Watchlist' if movie_id in st.session_state.watchlist else '♡ Add to my Watchlist',key=f'dialog-save-{movie_id}',type='primary',use_container_width=True):
+        toggle_watchlist(movie_id)
+        st.rerun()
+
+MOOD_STYLE={
+    'Feel-good':('😊','#59421C','Feel-good stories'),
+    'Romantic':('💕','#58243F','Fall in love'),
+    'Funny':('😂','#5A5023','Laugh out loud'),
+    'Exciting':('🔥','#623323','Feel the adrenaline'),
+    'Dark & Suspenseful':('🌙','#482745','Embrace the unknown'),
+    'Emotional':('🥺','#293A60','Feel something deep'),
+    'Inspiring':('✨','#4C3565','Discover new perspectives'),
+    'Thought-provoking':('🧠','#343160','Challenge your mind'),
+    None:('🎬','#30283F','Explore every feeling')}
+
+def choose_mood(detected):
+    key=f'cine-mood-{page}'
+    previous=f'{key}-detected'
+    if key not in st.session_state or st.session_state.get(previous)!=detected:
+        st.session_state[key]=detected if detected in e.MOOD_PROFILES else (e.MOOD_PROFILES[0] if page=='Mood Match' else None)
+    st.session_state[previous]=detected
+    st.subheader('Your desired mood')
+    if page=='Mood Match': st.caption('Every feeling has a story. Choose how you want to feel tonight.')
+    choices=[None]+list(e.MOOD_PROFILES)
+    for start in range(0,len(choices),3):
+        cols=st.columns(3)
+        for col,profile in zip(cols,choices[start:start+3]):
+            emoji,color,description=MOOD_STYLE.get(profile,('✨','#30283F','Explore this mood'))
+            selected=st.session_state[key]==profile
+            with col:
+                with st.container(border=True):
+                    st.markdown(f'<div style="background:{color};border:2px solid {"#d8b4fe" if selected else color};border-radius:12px;padding:12px;text-align:center;color:white"><span style="font-size:28px">{emoji}</span><br>{escape(description)}</div>',unsafe_allow_html=True)
+                    st.button(('✓ ' if selected else '')+(profile or 'Any'),key=f'{key}-{start}-{profile}',type='primary' if selected else 'secondary',use_container_width=True,on_click=set_mood,args=(key,profile))
+    return st.session_state[key]
+
+def set_mood(key,profile):
+    st.session_state[key]=profile
 
 def cards(rows, mood=None, reference=None, query=''):
     if rows.empty:
@@ -102,21 +173,14 @@ def cards(rows, mood=None, reference=None, query=''):
                         st.markdown(f':green[**{r.match_score:.1f}/100 Match index**]')
                         st.progress(float(np.clip(r.match_score/100,0,1)))
                     st.caption(' · '.join(r.genres))
-                    with st.expander('View details'):
-                        meta = [str(x) for x in (r.certification, r.original_language) if pd.notna(x) and str(x).strip().lower() not in ('none','nan','')]
-                        if meta: st.caption(' · '.join(meta))
-                        st.write(r.overview) if isinstance(r.overview,str) and r.overview.strip() else st.caption('Synopsis unavailable.')
-                        if 'match_score' in r:
-                            st.markdown('**Why this movie?**')
-                            st.write(e.explain_recommendation(r,mood=mood,reference_title=None if query else reference).replace('Text similarity to your query','Combined reference and query similarity' if reference and query else 'Text similarity to your query'))
-                        if 'sentiment_similarity' in r:
-                            st.caption(f'Plot sentiment similarity: {r.sentiment_similarity:.3f}')
+                    if st.button('View details', key=f'details-{page}-{j}-{movie_id}', use_container_width=True):
+                        movie_details(r, mood, reference, query)
                     st.button('✓ Saved · Remove' if movie_id in st.session_state.watchlist else '＋ Watchlist', key=f'{page}-{j}-{movie_id}', on_click=toggle_watchlist, args=(movie_id,), use_container_width=True)
 
 if page in ['Discover','Mood Match','Similar Movies']:
     query=st.text_input('Describe your ideal movie',placeholder='Funny romantic movie under 120 minutes, without horror') if page=='Discover' else ''
     prefs=e.parse_query(query); detected=prefs.pop('mood')
-    mood=st.selectbox('Desired mood',[None]+e.MOOD_PROFILES,index=([None]+e.MOOD_PROFILES).index(detected) if detected in e.MOOD_PROFILES else (1 if page=='Mood Match' else 0),format_func=lambda x:x or 'Any')
+    mood=choose_mood(detected)
     ref=st.selectbox('Reference movie',[None]+list(labels),format_func=lambda x:x or 'None',index=1 if page=='Similar Movies' else 0)
     with st.expander('Advanced filters',expanded=False):
         c,d=st.columns(2)
@@ -138,6 +202,7 @@ if page in ['Discover','Mood Match','Similar Movies']:
     filters=dict(year_range=years,min_rating=rating,min_votes=votes,runtime_range=runtime,genres=genres,genre_operator=op,excluded_genres=excluded,certifications=cert,languages=langs,actors=actors,directors=directors)
     if dates and len(dates)==2: filters['release_period']=dates
     method=st.radio('Recommendation method',['Hybrid','Content-Based','Sentiment-Based','Popular'],horizontal=True)
+    if mood and method!='Hybrid': st.caption('The selected mood affects Hybrid recommendations only.')
     with st.expander('Personalize hybrid weights'):
         weights=tuple(st.slider(k,0,100,v,key=k) for k,v in [('Content',50),('Mood',35),('Quality',15)])
     if query: st.caption('Detected preferences are reflected in the controls. Review before searching.')
@@ -166,7 +231,7 @@ if page in ['Discover','Mood Match','Similar Movies']:
         rows['hybrid_score']=rows.content_score*w[0]+rows.mood_score*w[1]+rows.quality_score*w[2]; rows['match_score']=rows.hybrid_score*100
         rows=rows.nlargest(12,'hybrid_score')
     st.divider()
-    st.header('Top picks for you')
+    st.header(f'Your {mood} collection' if page=='Mood Match' and mood and method=='Hybrid' and w[1]>0 else 'Top picks for you')
     st.caption(f'Showing {len(rows)} of {len(candidates)} eligible movies • {method}')
     cards(rows,mood,reference,query)
 elif page=='My Watchlist':
