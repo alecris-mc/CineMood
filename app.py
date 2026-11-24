@@ -54,9 +54,53 @@ st.markdown(f"""<div class="cine-hero">{hero_banner}<div class="cine-copy">
 <div class="cine-stats"><div><strong>{len(df):,}</strong><span>Movies</span></div><div><strong>AI</strong><span>Recommendations</span></div><div><strong>10</strong><span>Discovery tools</span></div></div>
 </div></div>""", unsafe_allow_html=True)
 st.session_state.setdefault('watchlist',[])
-page=st.sidebar.radio('Explore',['Discover','Mood Match','Similar Movies','Surprise Me','Hidden Gems','Top Rated','For You','My Watchlist','Compare','Analytics'])
-st.sidebar.caption(f'Powered by TMDB • {len(df):,} movies')
-st.sidebar.caption(f'♡ {len(st.session_state.watchlist)} saved movies')
+# Native Streamlit navigation: preserves session state and requires no extra packages.
+st.session_state.setdefault('cine_page', 'Discover')
+nav_groups = [
+    ('DISCOVER', [('🔎', 'Discover'), ('☺', 'Mood Match'), ('🎞', 'Similar Movies'), ('🎲', 'Surprise Me'), ('💎', 'Hidden Gems'), ('🏆', 'Top Rated')]),
+    ('YOUR CINEMA', [('♡', 'For You'), ('🔖', 'My Watchlist')]),
+    ('EXPLORE & ANALYZE', [('▥', 'Compare'), ('📊', 'Analytics')]),
+]
+def navigate(destination):
+    st.session_state.cine_page = destination
+
+st.markdown("""
+<style>
+[data-testid="stSidebar"] {background:#171827;}
+[data-testid="stSidebar"] [data-testid="stVerticalBlock"] {gap:.25rem;}
+[data-testid="stSidebar"] .stButton button {
+    width:100%; justify-content:flex-start; text-align:left;
+    border:1px solid transparent; border-radius:9px; background:transparent;
+    color:#e2e2eb; padding:.52rem .8rem; min-height:2.5rem;
+    transition:background-color .15s ease,color .15s ease,border-color .15s ease;
+}
+[data-testid="stSidebar"] .stButton button:hover {
+    background:#30243f; color:#e9d5ff; border-color:#49345f;
+}
+[data-testid="stSidebar"] .stButton button[kind="primary"],
+[data-testid="stSidebar"] .stButton button[data-testid="stBaseButton-primary"] {
+    background:#482866; color:#f3e8ff; border-color:#76509c;
+    box-shadow:inset 3px 0 #c084fc;
+}
+[data-testid="stSidebar"] .stButton button:focus-visible {outline:2px solid #c084fc;outline-offset:2px;}
+.cine-nav-brand {font-size:1.65rem;font-weight:750;color:#f4edff;line-height:1.3;}
+.cine-nav-sub {font-size:.8rem;color:#a5a0b5;margin-bottom:.7rem;}
+.cine-nav-group {font-size:.69rem;font-weight:700;letter-spacing:.10em;color:#a5a0b5;margin:.85rem 0 .25rem .55rem;}
+.cine-nav-footer {border-top:1px solid #39334b;margin-top:1rem;padding-top:.8rem;color:#a5a0b5;font-size:.8rem;line-height:1.8;}
+@media(prefers-reduced-motion:reduce){[data-testid="stSidebar"] .stButton button{transition:none;}}
+</style>
+""", unsafe_allow_html=True)
+with st.sidebar:
+    st.markdown('<div class="cine-nav-brand">🎬 CineMood</div><div class="cine-nav-sub">Your personal cinema</div>', unsafe_allow_html=True)
+    for group, entries in nav_groups:
+        st.markdown(f'<div class="cine-nav-group">{group}</div>', unsafe_allow_html=True)
+        for symbol, destination in entries:
+            selected = st.session_state.cine_page == destination
+            st.button(f'{symbol}  {destination}' + ('  ›' if selected else ''),
+                      key=f'cine-nav-{destination}', type='primary' if selected else 'secondary',
+                      use_container_width=True, on_click=navigate, args=(destination,))
+    st.markdown(f'<div class="cine-nav-footer">Powered by TMDB · {len(df):,} movies<br>♡ {len(st.session_state.watchlist)} saved movies</div>', unsafe_allow_html=True)
+page = st.session_state.cine_page
 page_intro = {
     'Discover': ('Discover your next favorite', 'Describe what you want to watch or refine your preferences.'),
     'Mood Match': ('How do you want to feel tonight?', 'Every feeling has a story.'),
