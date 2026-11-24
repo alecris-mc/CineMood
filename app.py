@@ -87,7 +87,9 @@ st.markdown("""
 [data-testid="stSidebar"] .stButton button:focus-visible {outline:2px solid #c084fc;outline-offset:1px;}
 .cine-nav-brand {font-size:1.55rem;font-weight:750;color:#f4edff;line-height:1.4;}
 .cine-nav-sub {font-size:.8rem;color:#a5a0b5;line-height:1.5;}
-.cine-nav-group {display:block;box-sizing:border-box;padding:.85rem .65rem .35rem;line-height:1.4;font-size:.68rem;font-weight:700;letter-spacing:.09em;color:#a5a0b5;}
+.cine-nav-group {display:block;box-sizing:border-box;padding:0 .65rem;line-height:1.4;font-size:.68rem;font-weight:700;letter-spacing:.09em;color:#a5a0b5;}
+[data-testid="stSidebar"] [data-testid="stElementContainer"]:has(.cine-nav-group) {min-height:2rem !important; height:auto !important; padding-top:.65rem; padding-bottom:.35rem; box-sizing:border-box; flex-shrink:0;}
+[data-testid="stSidebar"] [data-testid="stMarkdownContainer"]:has(.cine-nav-group) {overflow:visible; min-height:1rem;}
 .cine-nav-footer {border-top:1px solid #39334b;padding-top:.8rem;color:#a5a0b5;font-size:.75rem;line-height:1.7;}
 @media(prefers-reduced-motion:reduce){[data-testid="stSidebar"] .stButton button{transition:none;}}
 </style>
@@ -96,6 +98,7 @@ with st.sidebar:
     st.markdown('<div class="cine-nav-brand">CineMood</div><div class="cine-nav-sub">Your personal cinema</div>', unsafe_allow_html=True)
     for group, entries in nav_groups:
         st.markdown(f'<div class="cine-nav-group">{group}</div>', unsafe_allow_html=True)
+        st.markdown('<div style="height:6px;min-height:6px"></div>', unsafe_allow_html=True)
         for symbol, destination in entries:
             selected = st.session_state.cine_page == destination
             st.button(destination, icon=f':material/{symbol}:',
