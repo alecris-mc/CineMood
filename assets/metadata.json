@@ -1,0 +1,18 @@
+{
+    "project": "CineMood",
+    "version": "1.0.0",
+    "total_movies": 873,
+    "total_features": 39,
+    "tfidf_features": 12181,
+    "tests_passed": 26,
+    "total_tests": 26,
+    "data_source": "The Movie Database (TMDB)",
+    "exported_at": "2026-11-24T13:05:43.193512+00:00",
+    "library_versions": {
+        "numpy": "2.4.6",
+        "pandas": "2.2.3",
+        "scikit-learn": "1.6.1",
+        "scipy": "1.16.3",
+        "joblib": "1.6.0"
+    }
+}

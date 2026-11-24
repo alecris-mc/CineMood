@@ -1,0 +1,5 @@
+Model,Genre Relevance,Mood Compatibility,Average Rating,Diversity,Ranking Time (ms)
+Content-Based,0.7046,0.6101,7.6156,0.8957,7.0928
+Hybrid,0.545,0.8341,7.6928,0.9241,5.0916
+Popularity Baseline,0.1638,0.2682,7.4311,0.9741,6.6776
+Sentiment-Based,0.162,0.3163,7.4778,0.9784,5.9958
