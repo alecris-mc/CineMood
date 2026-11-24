@@ -82,6 +82,44 @@ def toggle_watchlist(movie_id):
         st.session_state.watchlist.append(movie_id)
 
 
+from urllib.request import urlopen, Request
+from urllib.parse import urlencode
+from urllib.error import URLError
+import json
+import re
+
+@st.cache_data(ttl=86400, show_spinner=False)
+def find_trailer(movie_id, _api_key):
+    url = f'https://api.themoviedb.org/3/movie/{movie_id}/videos?' + urlencode({'api_key': _api_key, 'language': 'en-US'})
+    with urlopen(Request(url, headers={'Accept': 'application/json'}), timeout=10) as response:
+        data = json.load(response)
+    videos = [v for v in data.get('results', []) if v.get('site') == 'YouTube' and v.get('type') == 'Trailer' and re.fullmatch(r'[A-Za-z0-9_-]{11}', str(v.get('key', '')))]
+    videos.sort(key=lambda v: (bool(v.get('official')), v.get('published_at') or ''), reverse=True)
+    return videos[0]['key'] if videos else None
+
+
+def show_trailer(r):
+    movie_id = int(r.id)
+    fallback = 'https://www.youtube.com/results?' + urlencode({'search_query': f'{r.title} {r.year} official trailer'})
+    if st.toggle('▶ Watch Trailer', key=f'trailer-{movie_id}'):
+        try:
+            api_key = st.secrets.get('TMDB_API_KEY', '')
+            if not api_key:
+                st.info('Trailer service is not configured.')
+            else:
+                with st.spinner('Finding the trailer...'):
+                    video_key = find_trailer(movie_id, api_key)
+                if video_key:
+                    video_url = f'https://www.youtube.com/watch?v={video_key}'
+                    st.video(video_url)
+                    st.link_button('Open trailer on YouTube', video_url)
+                else:
+                    st.info('No English-language YouTube trailer found in TMDB.')
+        except (URLError, TimeoutError, ValueError, OSError, KeyError):
+            st.warning('Trailer service is temporarily unavailable.')
+        st.link_button('Search official trailer on YouTube', fallback)
+
+
 @st.dialog("Movie details", width="large")
 def movie_details(r, mood=None, reference=None, query=''):
     a,b=st.columns([1,2])
@@ -99,6 +137,7 @@ def movie_details(r, mood=None, reference=None, query=''):
         st.caption(f'Dominant mood: {r.dominant_mood}')
     st.subheader('Overview')
     st.write(r.overview) if isinstance(r.overview,str) and r.overview.strip() else st.caption('Synopsis unavailable.')
+    show_trailer(r)
     if 'match_score' in r and pd.notna(r.match_score):
         st.subheader('Why this movie matches you')
         for label,score,weight in [('Content similarity','content_score','content_weight'),('Mood compatibility','mood_score','mood_weight'),('Quality score','quality_score','quality_weight')]:
