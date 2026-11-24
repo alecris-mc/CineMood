@@ -57,9 +57,9 @@ st.session_state.setdefault('watchlist',[])
 # Native Streamlit navigation: preserves session state and requires no extra packages.
 st.session_state.setdefault('cine_page', 'Discover')
 nav_groups = [
-    ('DISCOVER', [('🔎', 'Discover'), ('☺', 'Mood Match'), ('🎞', 'Similar Movies'), ('🎲', 'Surprise Me'), ('💎', 'Hidden Gems'), ('🏆', 'Top Rated')]),
-    ('YOUR CINEMA', [('♡', 'For You'), ('🔖', 'My Watchlist')]),
-    ('EXPLORE & ANALYZE', [('▥', 'Compare'), ('📊', 'Analytics')]),
+    ('DISCOVER', [('search', 'Discover'), ('sentiment_satisfied', 'Mood Match'), ('movie', 'Similar Movies'), ('casino', 'Surprise Me'), ('diamond', 'Hidden Gems'), ('emoji_events', 'Top Rated')]),
+    ('YOUR CINEMA', [('favorite', 'For You'), ('bookmark', 'My Watchlist')]),
+    ('EXPLORE & ANALYZE', [('compare_arrows', 'Compare'), ('bar_chart', 'Analytics')]),
 ]
 def navigate(destination):
     st.session_state.cine_page = destination
@@ -67,39 +67,41 @@ def navigate(destination):
 st.markdown("""
 <style>
 [data-testid="stSidebar"] {background:#171827;}
-[data-testid="stSidebar"] [data-testid="stVerticalBlock"] {gap:.25rem;}
+[data-testid="stSidebar"] [data-testid="stVerticalBlock"] {gap:.22rem;}
+[data-testid="stSidebar"] [data-testid="stSidebarContent"] {padding-bottom:1rem;}
 [data-testid="stSidebar"] .stButton button {
-    width:100%; justify-content:flex-start; text-align:left;
+    width:100%; justify-content:flex-start !important; text-align:left !important;
     border:1px solid transparent; border-radius:9px; background:transparent;
-    color:#e2e2eb; padding:.52rem .8rem; min-height:2.5rem;
+    color:#e2e2eb; padding:.42rem .65rem; min-height:2.35rem;
     transition:background-color .15s ease,color .15s ease,border-color .15s ease;
 }
-[data-testid="stSidebar"] .stButton button:hover {
-    background:#30243f; color:#e9d5ff; border-color:#49345f;
-}
+[data-testid="stSidebar"] .stButton button > div {justify-content:flex-start !important;text-align:left !important;}
+[data-testid="stSidebar"] .stButton button p {text-align:left !important;margin:0;font-size:.9rem;}
+[data-testid="stSidebar"] .stButton button [data-testid="stIconMaterial"] {color:#aaa9bd;font-size:1.15rem;flex-shrink:0;}
+[data-testid="stSidebar"] .stButton button:hover {background:#30243f;color:#e9d5ff;border-color:#49345f;}
 [data-testid="stSidebar"] .stButton button[kind="primary"],
 [data-testid="stSidebar"] .stButton button[data-testid="stBaseButton-primary"] {
-    background:#482866; color:#f3e8ff; border-color:#76509c;
-    box-shadow:inset 3px 0 #c084fc;
+    background:#482866;color:#f3e8ff;border-color:#76509c;box-shadow:inset 3px 0 #c084fc;
 }
-[data-testid="stSidebar"] .stButton button:focus-visible {outline:2px solid #c084fc;outline-offset:2px;}
-.cine-nav-brand {font-size:1.65rem;font-weight:750;color:#f4edff;line-height:1.3;}
-.cine-nav-sub {font-size:.8rem;color:#a5a0b5;margin-bottom:.7rem;}
-.cine-nav-group {font-size:.69rem;font-weight:700;letter-spacing:.10em;color:#a5a0b5;margin:.85rem 0 .25rem .55rem;}
-.cine-nav-footer {border-top:1px solid #39334b;margin-top:1rem;padding-top:.8rem;color:#a5a0b5;font-size:.8rem;line-height:1.8;}
+[data-testid="stSidebar"] .stButton button[kind="primary"] [data-testid="stIconMaterial"] {color:#d8b4fe;}
+[data-testid="stSidebar"] .stButton button:focus-visible {outline:2px solid #c084fc;outline-offset:1px;}
+.cine-nav-brand {font-size:1.55rem;font-weight:750;color:#f4edff;line-height:1.4;}
+.cine-nav-sub {font-size:.8rem;color:#a5a0b5;line-height:1.5;}
+.cine-nav-group {display:block;box-sizing:border-box;padding:.85rem .65rem .35rem;line-height:1.4;font-size:.68rem;font-weight:700;letter-spacing:.09em;color:#a5a0b5;}
+.cine-nav-footer {border-top:1px solid #39334b;padding-top:.8rem;color:#a5a0b5;font-size:.75rem;line-height:1.7;}
 @media(prefers-reduced-motion:reduce){[data-testid="stSidebar"] .stButton button{transition:none;}}
 </style>
 """, unsafe_allow_html=True)
 with st.sidebar:
-    st.markdown('<div class="cine-nav-brand">🎬 CineMood</div><div class="cine-nav-sub">Your personal cinema</div>', unsafe_allow_html=True)
+    st.markdown('<div class="cine-nav-brand">CineMood</div><div class="cine-nav-sub">Your personal cinema</div>', unsafe_allow_html=True)
     for group, entries in nav_groups:
         st.markdown(f'<div class="cine-nav-group">{group}</div>', unsafe_allow_html=True)
         for symbol, destination in entries:
             selected = st.session_state.cine_page == destination
-            st.button(f'{symbol}  {destination}' + ('  ›' if selected else ''),
+            st.button(destination, icon=f':material/{symbol}:',
                       key=f'cine-nav-{destination}', type='primary' if selected else 'secondary',
                       use_container_width=True, on_click=navigate, args=(destination,))
-    st.markdown(f'<div class="cine-nav-footer">Powered by TMDB · {len(df):,} movies<br>♡ {len(st.session_state.watchlist)} saved movies</div>', unsafe_allow_html=True)
+    st.markdown(f'<div class="cine-nav-footer">{len(df):,} movies · Powered by TMDB<br>{len(st.session_state.watchlist)} saved movies</div>', unsafe_allow_html=True)
 page = st.session_state.cine_page
 page_intro = {
     'Discover': ('Discover your next favorite', 'Describe what you want to watch or refine your preferences.'),
