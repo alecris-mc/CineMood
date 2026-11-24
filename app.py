@@ -277,19 +277,58 @@ elif page in ['Surprise Me','Hidden Gems','Top Rated']:
         candidates = candidates[(candidates.weighted_rating >= quality_cut) & (candidates.popularity <= popularity_cut) & (candidates.vote_count >= votes_cut)]
         st.caption('Top quartile of weighted ratings, at or below median popularity, and at least median vote count in the full catalog.')
     if page == 'Surprise Me':
-        st.caption(f'{len(candidates)} eligible movies')
-        pick_key = 'surprise-movie-id'
-        current = st.session_state.get(pick_key)
-        if current not in candidates.id.values:
-            st.session_state.pop(pick_key, None)
-        if st.button('🎲 Surprise me again!' if pick_key in st.session_state else '🎲 Surprise me!', type='primary', disabled=candidates.empty):
-            pool = candidates[candidates.id.ne(st.session_state.get(pick_key))]
-            if pool.empty: pool = candidates
-            st.session_state[pick_key] = int(pool.sample(1).iloc[0].id)
-        if pick_key in st.session_state:
-            cards(candidates[candidates.id.eq(st.session_state[pick_key])], mood)
-        elif candidates.empty:
-            st.info('No movies match. Try relaxing a filter.')
+        st.subheader('Find your movie match')
+        st.caption('One movie. One decision. Endless stories.')
+        state = st.session_state
+        state.setdefault('swipe_likes', [])
+        state.setdefault('swipe_passes', [])
+        eligible = set(candidates.id.astype(int))
+        seen = set(state.swipe_likes + state.swipe_passes)
+        pool = candidates[~candidates.id.isin(seen)]
+        current = state.get('swipe_current')
+        if current not in eligible or current in seen:
+            current = int(pool.sample(1).iloc[0].id) if not pool.empty else None
+            state.swipe_current = current
+        left, center, right = st.columns([1, 2, 1])
+        with center:
+            st.caption(f'♥ {len(state.swipe_likes)} liked · {len(state.swipe_passes)} passed · {len(pool)} remaining')
+            if current is not None:
+                r = candidates[candidates.id.eq(current)].iloc[0]
+                with st.container(border=True):
+                    if isinstance(r.poster_url, str) and r.poster_url.startswith('https://'):
+                        st.markdown(f'<img src="{escape(r.poster_url, quote=True)}" alt="{escape(str(r.title), quote=True)} poster" style="display:block;width:100%;max-height:480px;object-fit:contain;border-radius:16px">', unsafe_allow_html=True)
+                    else:
+                        st.caption('Poster unavailable')
+                    st.subheader(f'{r.title} ({r.year})')
+                    st.caption(f'★ {r.vote_average:.1f}/10 · {r.runtime:g} min')
+                    st.caption(' · '.join(r.genres))
+                    x, info, heart = st.columns(3)
+                    if x.button('❌ Pass', key='swipe-pass', use_container_width=True):
+                        state.swipe_passes.append(current)
+                        state.swipe_current = None
+                        st.rerun()
+                    if info.button('ⓘ Details', key='swipe-details', use_container_width=True):
+                        movie_details(r, mood)
+                    if heart.button('💜 Like', key='swipe-like', type='primary', use_container_width=True):
+                        state.swipe_likes.append(current)
+                        if current not in state.watchlist:
+                            state.watchlist.append(current)
+                        state.swipe_current = None
+                        st.rerun()
+            elif candidates.empty:
+                st.info('No movies match. Try relaxing a filter.')
+            else:
+                st.success('You have explored every eligible movie!')
+            if st.button('↻ Reset discovery', key='swipe-reset', use_container_width=True):
+                state.swipe_likes = []
+                state.swipe_passes = []
+                state.swipe_current = None
+                st.rerun()
+        if state.swipe_likes:
+            st.subheader('♡ Your movie matches')
+            st.caption('Liked movies are also saved to your Watchlist.')
+            matches = df[df.id.isin(state.swipe_likes)].copy()
+            cards(matches)
     else:
         st.caption(f'{len(candidates)} eligible movies · Ranked by weighted rating')
         rows = candidates.sort_values(['weighted_rating','vote_count'], ascending=False).head(12)
