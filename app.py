@@ -51,16 +51,19 @@ st.markdown(f"""<div class="cine-hero">{hero_banner}<div class="cine-copy">
 <h1>🎬 CineMood</h1>
 <div class="cine-tagline">Your next movie starts with a feeling.</div>
 <div class="cine-description">Discover stories that match your mood, personality and taste.</div>
-<div class="cine-stats"><div><strong>{len(df):,}</strong><span>Movies</span></div><div><strong>AI</strong><span>Recommendations</span></div><div><strong>6</strong><span>Discovery tools</span></div></div>
+<div class="cine-stats"><div><strong>{len(df):,}</strong><span>Movies</span></div><div><strong>AI</strong><span>Recommendations</span></div><div><strong>9</strong><span>Discovery tools</span></div></div>
 </div></div>""", unsafe_allow_html=True)
 st.session_state.setdefault('watchlist',[])
-page=st.sidebar.radio('Explore',['Discover','Mood Match','Similar Movies','My Watchlist','Compare','Analytics'])
+page=st.sidebar.radio('Explore',['Discover','Mood Match','Similar Movies','Surprise Me','Hidden Gems','Top Rated','My Watchlist','Compare','Analytics'])
 st.sidebar.caption(f'Powered by TMDB • {len(df):,} movies')
 st.sidebar.caption(f'♡ {len(st.session_state.watchlist)} saved movies')
 page_intro = {
     'Discover': ('Discover your next favorite', 'Describe what you want to watch or refine your preferences.'),
     'Mood Match': ('How do you want to feel tonight?', 'Every feeling has a story.'),
     'Similar Movies': ('More movies like your favorites', 'Select a reference movie to explore related stories.'),
+    'Surprise Me': ('🎲 Surprise Me', 'Sometimes the best stories are the ones you never expected.'),
+    'Hidden Gems': ('💎 Hidden Gems', 'Extraordinary stories beyond the spotlight.'),
+    'Top Rated': ('🏆 Top Rated', 'Discover the highest-rated stories in our collection.'),
     'My Watchlist': ('Your personal collection', 'Keep your discoveries together during this session.'),
     'Compare': ('Compare your picks', 'Explore up to four movies side by side.'),
     'Analytics': ('Inside the recommendation engine', 'Explore the dataset, model benchmark and quality checks.')
@@ -134,7 +137,7 @@ def choose_mood(detected):
     st.session_state[previous]=detected
     st.subheader('Your desired mood')
     if page=='Mood Match': st.caption('Every feeling has a story. Choose how you want to feel tonight.')
-    choices=[None]+list(e.MOOD_PROFILES)
+    choices=list(e.MOOD_PROFILES) if page=='Mood Match' else [None]+list(e.MOOD_PROFILES)
     for start in range(0,len(choices),3):
         cols=st.columns(3)
         for col,profile in zip(cols,choices[start:start+3]):
@@ -177,10 +180,26 @@ def cards(rows, mood=None, reference=None, query=''):
                         movie_details(r, mood, reference, query)
                     st.button('✓ Saved · Remove' if movie_id in st.session_state.watchlist else '＋ Watchlist', key=f'{page}-{j}-{movie_id}', on_click=toggle_watchlist, args=(movie_id,), use_container_width=True)
 
-if page in ['Discover','Mood Match','Similar Movies']:
+if page=='Mood Match':
+    mood=choose_mood(None)
+    rows=df.copy()
+    rows['content_score']=0.
+    rows['mood_score']=rows[f'mood_{mood}'].fillna(0) if mood else 0.
+    rows['quality_score']=rows.weighted_rating.fillna(0)/10
+    rows['content_weight']=0.
+    rows['mood_weight']=1. if mood else 0.
+    rows['quality_weight']=0. if mood else 1.
+    rows['hybrid_score']=rows.mood_score if mood else rows.quality_score
+    rows['match_score']=rows.hybrid_score*100
+    rows=rows.sort_values(['hybrid_score','weighted_rating'],ascending=False).head(12)
+    st.divider()
+    st.header(f'Your {mood} collection' if mood else 'Top picks for you')
+    st.caption('Ranked by emotional compatibility' if mood else 'Ranked by weighted rating')
+    cards(rows,mood)
+elif page in ['Discover','Similar Movies']:
     query=st.text_input('Describe your ideal movie',placeholder='Funny romantic movie under 120 minutes, without horror') if page=='Discover' else ''
     prefs=e.parse_query(query); detected=prefs.pop('mood')
-    mood=choose_mood(detected)
+    mood=choose_mood(detected) if page=='Discover' else None
     ref=st.selectbox('Reference movie',[None]+list(labels),format_func=lambda x:x or 'None',index=1 if page=='Similar Movies' else 0)
     with st.expander('Advanced filters',expanded=False):
         c,d=st.columns(2)
@@ -204,7 +223,10 @@ if page in ['Discover','Mood Match','Similar Movies']:
     method=st.radio('Recommendation method',['Hybrid','Content-Based','Sentiment-Based','Popular'],horizontal=True)
     if mood and method!='Hybrid': st.caption('The selected mood affects Hybrid recommendations only.')
     with st.expander('Personalize hybrid weights'):
-        weights=tuple(st.slider(k,0,100,v,key=k) for k,v in [('Content',50),('Mood',35),('Quality',15)])
+        if page=='Discover':
+            weights=tuple(st.slider(k,0,100,v,key=k) for k,v in [('Content',50),('Mood',35),('Quality',15)])
+        else:
+            weights=(st.slider('Content',0,100,50,key='similar-content'),0,st.slider('Quality',0,100,15,key='similar-quality'))
     if query: st.caption('Detected preferences are reflected in the controls. Review before searching.')
     candidates=e.filter_movies(**filters)
     st.caption(f'{len(candidates)} eligible movies')
@@ -231,9 +253,47 @@ if page in ['Discover','Mood Match','Similar Movies']:
         rows['hybrid_score']=rows.content_score*w[0]+rows.mood_score*w[1]+rows.quality_score*w[2]; rows['match_score']=rows.hybrid_score*100
         rows=rows.nlargest(12,'hybrid_score')
     st.divider()
-    st.header(f'Your {mood} collection' if page=='Mood Match' and mood and method=='Hybrid' and w[1]>0 else 'Top picks for you')
+    st.header('Top picks for you')
     st.caption(f'Showing {len(rows)} of {len(candidates)} eligible movies • {method}')
     cards(rows,mood,reference,query)
+elif page in ['Surprise Me','Hidden Gems','Top Rated']:
+    prefix = 'collection-' + page
+    c1,c2,c3 = st.columns(3)
+    with c1:
+        genre = st.selectbox('Genre', [None]+options('genres'), format_func=lambda x:x or 'Any', key=prefix+'-genre')
+    with c2:
+        mood = st.selectbox('Desired mood', [None]+list(e.MOOD_PROFILES), format_func=lambda x:x or 'Any', key=prefix+'-mood')
+    with c3:
+        years = st.slider('Year range', int(df.year.min()), int(df.year.max()), (int(df.year.min()),int(df.year.max())), key=prefix+'-years')
+    candidates = df[df.year.between(*years)].copy()
+    if genre:
+        candidates = candidates[candidates.genres.apply(lambda gs: genre in gs)]
+    if mood:
+        candidates = candidates[candidates.dominant_mood.eq(mood)]
+    if page == 'Hidden Gems':
+        quality_cut = df.weighted_rating.quantile(.75)
+        popularity_cut = df.popularity.median()
+        votes_cut = df.vote_count.median()
+        candidates = candidates[(candidates.weighted_rating >= quality_cut) & (candidates.popularity <= popularity_cut) & (candidates.vote_count >= votes_cut)]
+        st.caption('Top quartile of weighted ratings, at or below median popularity, and at least median vote count in the full catalog.')
+    if page == 'Surprise Me':
+        st.caption(f'{len(candidates)} eligible movies')
+        pick_key = 'surprise-movie-id'
+        current = st.session_state.get(pick_key)
+        if current not in candidates.id.values:
+            st.session_state.pop(pick_key, None)
+        if st.button('🎲 Surprise me again!' if pick_key in st.session_state else '🎲 Surprise me!', type='primary', disabled=candidates.empty):
+            pool = candidates[candidates.id.ne(st.session_state.get(pick_key))]
+            if pool.empty: pool = candidates
+            st.session_state[pick_key] = int(pool.sample(1).iloc[0].id)
+        if pick_key in st.session_state:
+            cards(candidates[candidates.id.eq(st.session_state[pick_key])], mood)
+        elif candidates.empty:
+            st.info('No movies match. Try relaxing a filter.')
+    else:
+        st.caption(f'{len(candidates)} eligible movies · Ranked by weighted rating')
+        rows = candidates.sort_values(['weighted_rating','vote_count'], ascending=False).head(12)
+        cards(rows, mood)
 elif page=='My Watchlist':
     st.caption('Saved for this browser session.')
     saved=df[df.id.isin(st.session_state.watchlist)]
