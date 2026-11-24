@@ -51,10 +51,10 @@ st.markdown(f"""<div class="cine-hero">{hero_banner}<div class="cine-copy">
 <h1>🎬 CineMood</h1>
 <div class="cine-tagline">Your next movie starts with a feeling.</div>
 <div class="cine-description">Discover stories that match your mood, personality and taste.</div>
-<div class="cine-stats"><div><strong>{len(df):,}</strong><span>Movies</span></div><div><strong>AI</strong><span>Recommendations</span></div><div><strong>9</strong><span>Discovery tools</span></div></div>
+<div class="cine-stats"><div><strong>{len(df):,}</strong><span>Movies</span></div><div><strong>AI</strong><span>Recommendations</span></div><div><strong>10</strong><span>Discovery tools</span></div></div>
 </div></div>""", unsafe_allow_html=True)
 st.session_state.setdefault('watchlist',[])
-page=st.sidebar.radio('Explore',['Discover','Mood Match','Similar Movies','Surprise Me','Hidden Gems','Top Rated','My Watchlist','Compare','Analytics'])
+page=st.sidebar.radio('Explore',['Discover','Mood Match','Similar Movies','Surprise Me','Hidden Gems','Top Rated','For You','My Watchlist','Compare','Analytics'])
 st.sidebar.caption(f'Powered by TMDB • {len(df):,} movies')
 st.sidebar.caption(f'♡ {len(st.session_state.watchlist)} saved movies')
 page_intro = {
@@ -64,6 +64,7 @@ page_intro = {
     'Surprise Me': ('🎲 Surprise Me', 'Sometimes the best stories are the ones you never expected.'),
     'Hidden Gems': ('💎 Hidden Gems', 'Extraordinary stories beyond the spotlight.'),
     'Top Rated': ('🏆 Top Rated', 'Discover the highest-rated stories in our collection.'),
+    'For You': ('💜 For You', 'Every movie you like brings us closer to your next favorite.'),
     'My Watchlist': ('Your personal collection', 'Keep your discoveries together during this session.'),
     'Compare': ('Compare your picks', 'Explore up to four movies side by side.'),
     'Analytics': ('Inside the recommendation engine', 'Explore the dataset, model benchmark and quality checks.')
@@ -138,7 +139,12 @@ def movie_details(r, mood=None, reference=None, query=''):
     st.subheader('Overview')
     st.write(r.overview) if isinstance(r.overview,str) and r.overview.strip() else st.caption('Synopsis unavailable.')
     show_trailer(r)
-    if 'match_score' in r and pd.notna(r.match_score):
+    if 'personal_score' in r and pd.notna(r.personal_score):
+        st.subheader('Why this movie matches you')
+        for label, key, weight in [('Content similarity','personal_content',50),('Mood compatibility','personal_mood',25),('Genre affinity','personal_genre',15),('Quality','personal_quality',10)]:
+            st.progress(float(r[key]), text=f'{label}: {r[key]*100:.1f}/100 · Weight {weight}%')
+        st.info('Based on your liked and saved movies. Passed movies are excluded.')
+    elif 'match_score' in r and pd.notna(r.match_score):
         st.subheader('Why this movie matches you')
         for label,score,weight in [('Content similarity','content_score','content_weight'),('Mood compatibility','mood_score','mood_weight'),('Quality score','quality_score','quality_weight')]:
             if r[weight]>0 and pd.notna(r[score]):
@@ -372,6 +378,52 @@ elif page in ['Surprise Me','Hidden Gems','Top Rated']:
         st.caption(f'{len(candidates)} eligible movies · Ranked by weighted rating')
         rows = candidates.sort_values(['weighted_rating','vote_count'], ascending=False).head(12)
         cards(rows, mood)
+elif page=='For You':
+    from collections import Counter
+    state = st.session_state
+    likes = set(state.get('swipe_likes', []))
+    passes = set(state.get('swipe_passes', []))
+    saved_ids = set(state.watchlist)
+    positive = (likes | saved_ids) - passes
+    favorites = df[df.id.isin(positive)]
+    available = df[~df.id.isin(likes | saved_ids | passes)].copy()
+    st.subheader('🧬 Your Cinema DNA')
+    if len(favorites) < 3:
+        st.info('Like or save at least three different movies to unlock your personalized recommendations. Visit Surprise Me or Discover to get started.')
+        st.progress(min(len(favorites)/3, 1.), text=f'{len(favorites)} / 3 favorite movies')
+        st.subheader('Popular starting points')
+        cards(available.sort_values(['weighted_rating','vote_count'], ascending=False).head(12))
+    else:
+        genre_counts = Counter(g for genres in favorites.genres for g in set(genres))
+        mood_cols = [f'mood_{m}' for m in e.MOOD_PROFILES]
+        mood_matrix = df[mood_cols].fillna(0).clip(0,1).to_numpy(dtype=float)
+        profile = favorites[mood_cols].fillna(0).clip(0,1).mean().to_numpy(dtype=float)
+        with st.container(border=True):
+            a,b,c = st.columns(3)
+            a.metric('Favorite genre', genre_counts.most_common(1)[0][0] if genre_counts else 'Unknown')
+            b.metric('Favorite mood', e.MOOD_PROFILES[int(np.argmax(profile))] if profile.max()>0 else 'Unknown')
+            c.metric('Favorite movies', len(favorites))
+            st.caption(f'{len(likes)} likes · {len(saved_ids)} saved · {len(passes)} passed (likes and saves deduplicated)')
+            st.markdown('**Your genre preferences**')
+            for genre,count in genre_counts.most_common(6):
+                st.progress(count/len(favorites), text=f'{genre}: {count/len(favorites):.0%} of favorites')
+            with st.expander('Your emotional profile'):
+                for mood_name,value in zip(e.MOOD_PROFILES,profile):
+                    st.progress(float(value), text=f'{mood_name}: {value*100:.1f}/100')
+        content = np.clip(e.similarity_matrix[favorites.index].mean(axis=0),0,1)
+        emotional = cosine_similarity(mood_matrix, profile.reshape(1,-1)).ravel()
+        affinity = {g:n/len(favorites) for g,n in genre_counts.items()}
+        genre_scores = df.genres.apply(lambda gs: np.mean([affinity.get(g,0.) for g in set(gs)]) if len(gs) else 0.)
+        available['personal_content'] = content[available.index]
+        available['personal_mood'] = np.clip(emotional[available.index],0,1)
+        available['personal_genre'] = genre_scores.loc[available.index]
+        available['personal_quality'] = (available.weighted_rating.fillna(0)/10).clip(0,1)
+        available['personal_score'] = .50*available.personal_content + .25*available.personal_mood + .15*available.personal_genre + .10*available.personal_quality
+        available['match_score'] = available.personal_score*100
+        st.subheader('Recommended for you')
+        st.caption('Personalized hybrid ranking · Match index is not a probability.')
+        cards(available.sort_values(['personal_score','weighted_rating'],ascending=False).head(12))
+    st.caption('Your profile updates during this session. Passed movies are excluded, not used as negative training examples.')
 elif page=='My Watchlist':
     st.caption('Saved for this browser session.')
     saved=df[df.id.isin(st.session_state.watchlist)]
