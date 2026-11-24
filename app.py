@@ -1,3 +1,99 @@
+import streamlit as st
+import pandas as pd
+import numpy as np
+import plotly.express as px
+from pathlib import Path
+from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.metrics.pairwise import cosine_similarity
+import engine as e
+
+st.set_page_config(page_title='CineMood',page_icon='🎬',layout='wide')
+A=Path(__file__).parent/'assets'
+@st.cache_resource
+def load():
+    df=pd.read_json(A/'cinemood_movies.json')
+    df['release_date']=pd.to_datetime(df.release_date,errors='coerce')
+    # Refit from exported features for portability across library versions.
+    v=TfidfVectorizer(stop_words='english',ngram_range=(1,2),min_df=2,max_df=.90,max_features=20000,sublinear_tf=True)
+    m=v.fit_transform(df.combined_features.fillna(''))
+    return df,v,m,cosine_similarity(m)
+e.df,e.tfidf,e.tfidf_matrix,e.similarity_matrix=load()
+df=e.df
+import base64
+hero_path = A / 'Auroras sobre montañas violetas.png'
+hero_image = base64.b64encode(hero_path.read_bytes()).decode('ascii') if hero_path.is_file() else ''
+st.markdown("""
+<style>
+.block-container {padding-top:2.5rem;max-width:1250px;}
+.cine-hero {overflow:hidden;border-radius:22px;background:#191426;border:1px solid #352746;margin-bottom:1.5rem;}
+.cine-landscape {display:block;width:100%;aspect-ratio: 21/9;object-fit:cover;}
+.cine-copy {padding:1.5rem 2rem 1.8rem;}
+.cine-kicker {color:#d8b4fe;font-size:.8rem;font-weight:700;letter-spacing:.06em;}
+.cine-hero h1 {color:#fff;font-size:clamp(2rem,4vw,3rem);margin:.4rem 0;}
+.cine-tagline {color:#f0e8ff;font-size:1.3rem;font-weight:600;margin:.5rem 0;}
+.cine-description {color:#d1c4e9;margin:.7rem 0;}
+.cine-stats {display:flex;flex-wrap:wrap;gap:2rem;margin-top:1rem;}
+.cine-stats strong {display:block;color:#c084fc;font-size:1.65rem;}
+.cine-stats span {color:#e2d9ed;font-size:.9rem;}
+[data-testid="stMetric"] {background:#171b2b;border:1px solid #343047;padding:1rem;border-radius:14px;}
+[data-testid="stImage"] img {border-radius:12px;}
+@media(max-width:600px){.cine-copy{padding:1rem;}.cine-stats{gap:1rem;}}
+.cine-poster {display:block;width:100%;aspect-ratio:2/3;object-fit:cover;border-radius:12px;background:#211932;transition:filter .18s ease;}
+.cine-poster:hover {filter:brightness(1.12);}
+.cine-placeholder {display:grid;place-content:center;text-align:center;color:#c4b5fd;}
+@media(prefers-reduced-motion:reduce){.cine-poster{transition:none;}}
+</style>
+""", unsafe_allow_html=True)
+hero_banner = f'<img class="cine-landscape" src="data:image/png;base64,{hero_image}" alt="Purple and blue auroras over mountains">' if hero_image else ''
+st.markdown(f"""<div class="cine-hero">{hero_banner}<div class="cine-copy">
+<div class="cine-kicker">YOUR PERSONAL MOVIE DISCOVERY ENGINE</div>
+<h1>🎬 CineMood</h1>
+<div class="cine-tagline">Your next movie starts with a feeling.</div>
+<div class="cine-description">Discover stories that match your mood, personality and taste.</div>
+<div class="cine-stats"><div><strong>{len(df):,}</strong><span>Movies</span></div><div><strong>AI</strong><span>Recommendations</span></div><div><strong>6</strong><span>Discovery tools</span></div></div>
+</div></div>""", unsafe_allow_html=True)
+st.session_state.setdefault('watchlist',[])
+page=st.sidebar.radio('Explore',['Discover','Mood Match','Similar Movies','My Watchlist','Compare','Analytics'])
+st.sidebar.caption(f'Powered by TMDB • {len(df):,} movies')
+st.sidebar.caption(f'♡ {len(st.session_state.watchlist)} saved movies')
+page_intro = {
+    'Discover': ('Discover your next favorite', 'Describe what you want to watch or refine your preferences.'),
+    'Mood Match': ('Find a movie for your mood', 'Choose the emotional experience you want to explore.'),
+    'Similar Movies': ('More movies like your favorites', 'Select a reference movie to explore related stories.'),
+    'My Watchlist': ('Your personal collection', 'Keep your discoveries together during this session.'),
+    'Compare': ('Compare your picks', 'Explore up to four movies side by side.'),
+    'Analytics': ('Inside the recommendation engine', 'Explore the dataset, model benchmark and quality checks.')
+}
+st.header(page_intro[page][0])
+st.caption(page_intro[page][1])
+labels={f'{r.title} ({r.year}) · {r.id}':i for i,r in df.iterrows()}
+
+def options(col):
+    return sorted({x for values in df[col] for x in values if x})
+
+def toggle_watchlist(movie_id):
+    if movie_id in st.session_state.watchlist:
+        st.session_state.watchlist.remove(movie_id)
+    else:
+        st.session_state.watchlist.append(movie_id)
+
+
+def cards(rows, mood=None, reference=None, query=''):
+    if rows.empty:
+        st.info('No movies match. Try relaxing a filter.'); return
+    movies = list(rows.iterrows())
+    for start in range(0, len(movies), 3):
+        cols = st.columns(3, gap='medium')
+        for offset, (_, r) in enumerate(movies[start:start+3]):
+            j = start + offset
+            movie_id = int(r.id)
+            with cols[offset]:
+                with st.container(border=True):
+                    if page != 'My Watchlist':
+                        st.caption(f'TOP PICK · {j+1:02d}')
+                    if isinstance(r.poster_url, str) and r.poster_url.startswith('https://'):
+                        from html import escape
+                        st.markdown(f'<img class="cine-poster" src="{escape(r.poster_url, quote=True)}" alt="{escape(str(r.title), quote=True)} poster" loading="lazy">', unsafe_allow_html=True)
                     else:
                         st.markdown('<div class="cine-poster cine-placeholder">🎬<br>Poster unavailable</div>', unsafe_allow_html=True)
                     st.markdown(f'**{r.title} ({r.year})**')
