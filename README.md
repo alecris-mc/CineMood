@@ -1,16 +1,19 @@
+
 # 🎬 CineMood
 
 ### Your next movie starts with a feeling.
 
-CineMood is an intelligent movie recommendation system that combines Natural Language Processing (NLP), mood-based analysis, content similarity, hybrid recommendation techniques, and Explainable AI (XAI).
+CineMood is an intelligent movie discovery and recommendation platform that combines Natural Language Processing (NLP), emotional preferences, content similarity, hybrid recommendation techniques, personalized discovery, and Explainable AI (XAI).
 
-Unlike traditional recommendation systems that primarily rely on popularity or ratings, CineMood allows users to discover movies based on their emotional preferences, natural language requests, and personalized selection criteria.
+Unlike traditional recommendation systems that primarily rely on popularity or ratings, CineMood helps users discover what to watch, understand why a movie matches their preferences, and find where it is available.
 
-## 🌐 Live Application
+## 🌐 Live Application and Website
 
-**[Launch CineMood](https://cinemood-ai-mru.streamlit.app)**
+- **[Launch CineMood](https://cinemood-ai-mru.streamlit.app/)**
+- **[Official Project Website](https://sites.google.com/ucsp.edu.pe/cinemood/inicio)**
+- **[GitHub Repository](https://github.com/alecris-mc/CineMood)**
 
-The application is publicly deployed using Streamlit Community Cloud.
+The application is publicly deployed using Streamlit Community Cloud and integrated into a dedicated Google Sites website.
 
 ## 📊 Project Overview
 
@@ -18,15 +21,16 @@ The application is publicly deployed using Streamlit Community Cloud.
 |---|---:|
 | Movies in the dataset | 873 |
 | Recommendation models evaluated | 4 |
-| Functional tests passed | 26/26 |
-| Functional test pass rate | 100% |
+| Original functional tests passed | 26/26 |
+| Original functional test pass rate | 100% |
 | Reference movies used in benchmarking | 6 |
 | Hybrid mood compatibility | 83.41% |
 
 ## ✨ Key Features
 
-### Discover
-Search for movies using natural language and advanced filters.
+### 🔍 Discover
+
+Search for movies using natural language and advanced filtering options.
 
 Example:
 
@@ -34,23 +38,67 @@ Example:
 
 The system extracts relevant preferences, including genres, excluded genres, runtime, rating requirements, and emotional intent.
 
-### Mood Match
-Discover movies according to the emotional experience you are looking for.
+### 🎭 Mood Match
 
-### Similar Movies
-Receive recommendations based on the content similarity of a selected reference movie.
+Discover movies according to the emotional experience you are looking for through an interactive mood selection interface.
 
-### My Watchlist
-Save interesting movies during the current browser session.
+### 🎬 Similar Movies
 
-### Compare
-Compare movies using relevant characteristics and recommendation indicators.
+Receive content-based recommendations using a selected reference movie, with similarity scores and interpretable explanations.
 
-### Analytics
-Explore dataset characteristics, data quality, and recommendation model performance.
+### 💜 Surprise Me
 
-### Explainable AI
-Understand why a movie is recommended through interpretable recommendation scores and explanations.
+Explore movies through a Tinder-inspired discovery experience. Users can like or pass on suggested movies, making discovery more interactive and engaging.
+
+### 💎 Hidden Gems
+
+Discover potentially overlooked movies beyond conventional popularity-based recommendations.
+
+### ⭐ Top Rated
+
+Explore highly rated movies within the available dataset.
+
+### ✨ For You
+
+Receive personalized recommendations based on movies liked or saved during the current session.
+
+The personalization mechanism combines content similarity, emotional compatibility, genre preferences, and movie quality.
+
+### 🧬 Cinema DNA
+
+Explore a personalized cinematic profile derived from movie preferences and interactions.
+
+Cinema DNA becomes available after the user likes or saves at least three distinct movies.
+
+### 🔖 My Watchlist
+
+Save interesting movies and organize potential viewing choices during the current application session.
+
+### ⚖️ Compare
+
+Compare movies using relevant characteristics, emotional profiles, and recommendation indicators to support more informed viewing decisions.
+
+### 📊 Analytics
+
+Explore dataset characteristics, data quality, and recommendation model performance through interactive visualizations.
+
+### ▶️ Watch Trailer
+
+Access movie trailers through TMDB video information and YouTube integration, with a search fallback when a suitable trailer is unavailable.
+
+### 📺 Where to Watch
+
+Explore regional streaming availability through TMDB watch-provider information powered by JustWatch.
+
+Users can select their country and discover available streaming, rental, and purchase options when provider information exists.
+
+### 🧠 Explainable AI
+
+Understand why a movie is recommended through interpretable recommendation scores, emotional characteristics, similarity indicators, and explanations.
+
+### 🎨 Interactive User Experience
+
+CineMood incorporates a cinematic visual identity, interactive movie cards, detailed movie information, intuitive navigation, and a responsive dark-themed interface.
 
 ## 🧠 Methodology
 
@@ -67,7 +115,10 @@ CineMood follows a structured data science and artificial intelligence workflow:
 9. Hybrid recommendation scoring.
 10. Explainable recommendation generation.
 11. Functional testing and model evaluation.
-12. Interactive web application deployment.
+12. Interactive web application development.
+13. Session-based preference personalization.
+14. External movie information integration.
+15. Public application deployment.
 
 ## ⚙️ System Architecture
 
@@ -78,14 +129,62 @@ flowchart TD
     C --> D[Feature Engineering]
     D --> E[TF-IDF and Content Similarity]
     D --> F[Sentiment and Mood Analysis]
-    G[User Preferences] --> H[NLP Query Processing]
+    G[User Input] --> H[NLP Query Processing]
     H --> I[Recommendation Engine]
     E --> I
     F --> I
     I --> J[Hybrid Ranking]
     J --> K[Explainable Recommendations]
-    K --> L[Streamlit Web Application]
+    K --> L[Streamlit Interface]
+    L --> M[Likes and Watchlist]
+    M --> N[Session-Based Personalization]
+    N --> O[For You and Cinema DNA]
+    A --> P[Trailers and Watch Providers]
+    P --> L
 ```
+
+## 🔬 Recommendation Logic
+
+CineMood incorporates four recommendation approaches:
+
+- **Content-Based:** Uses TF-IDF and cosine similarity to identify movies with similar content.
+- **Sentiment-Based:** Uses emotional and sentiment characteristics to generate recommendations.
+- **Popularity Baseline:** Provides a conventional popularity-based comparison model.
+- **Hybrid:** Combines multiple recommendation indicators to balance emotional compatibility, content relevance, and movie quality.
+
+### Session-Based Personalization
+
+The personalized recommendation mechanism incorporates the following weights:
+
+| Component | Weight |
+|---|---:|
+| Content similarity | 50% |
+| Mood compatibility | 25% |
+| Genre preferences | 15% |
+| Movie quality | 10% |
+
+Personalization uses movies liked or saved during the current session.
+
+Movies marked as passed are excluded from further personalized suggestions rather than used as negative training examples.
+
+The system does not retrain its underlying machine learning models in real time.
+
+## 🎯 Filtering System
+
+CineMood supports structured filters and natural language preferences to improve recommendation relevance.
+
+Filtering criteria include:
+
+- Movie genres
+- Excluded genres
+- Release year
+- Runtime
+- Minimum movie rating
+- Emotional preferences
+- Movie popularity
+- Content similarity
+
+The availability of individual filters depends on the selected application section.
 
 ## 📈 Model Evaluation
 
@@ -106,7 +205,48 @@ Four recommendation approaches were evaluated using six reference movies.
 - The sentiment-based model achieved the highest diversity score.
 - The hybrid approach provides a balance between emotional compatibility, content relevance, movie quality, and diversity.
 
-These results represent an exploratory benchmark rather than a comprehensive evaluation of real-world user satisfaction.
+These results represent an exploratory benchmark using proxy evaluation metrics rather than a comprehensive evaluation of real-world user satisfaction.
+
+## 💼 Business Rationale
+
+### Problem
+
+Users often experience information overload, spend excessive time choosing movies, receive generic recommendations, and need to consult multiple platforms to identify streaming availability.
+
+### Target Users
+
+- Movie enthusiasts
+- Streaming subscribers
+- University students
+- Young adults
+- Users seeking personalized entertainment experiences
+
+### Unique Value Proposition
+
+Discover what to watch, why it matches your emotions, and where to find it, all in one intelligent platform.
+
+### Differentiation
+
+CineMood combines emotional recommendations, natural language search, interactive movie matching, interpretable recommendation indicators, personalized cinematic profiles, and regional streaming information within a unified discovery experience.
+
+### Potential Business Model
+
+CineMood could adopt a freemium business model supported by:
+
+- Premium personalization features
+- Persistent user profiles
+- Potential streaming affiliate partnerships
+- B2B recommendation solutions
+
+These revenue streams represent proposed future opportunities rather than currently implemented commercial operations.
+
+### Proposed Business Metrics
+
+- Monthly active users
+- Recommendation acceptance rate
+- User retention
+- Watchlist conversion
+- Average movie selection time
 
 ## 🛠️ Technologies Used
 
@@ -121,7 +261,10 @@ These results represent an exploratory benchmark rather than a comprehensive eva
 - Streamlit
 - Joblib
 - TMDB API
+- JustWatch provider information
+- YouTube trailer integration
 - Google Colab
+- Google Sites
 - GitHub
 
 ## 📁 Repository Structure
@@ -150,7 +293,9 @@ CineMood/
 └── README.md
 ```
 
-The development notebook documents the data science workflow, while the Python application files provide the interactive user experience.
+The development notebook documents the original data science workflow and model evaluation.
+
+The recommendation engine and application files support the interactive user experience, while the assets directory contains precomputed data and recommendation resources.
 
 ## 🚀 Local Installation
 
@@ -169,7 +314,31 @@ Python 3.11 is recommended.
 pip install -r requirements.txt
 ```
 
-### 3. Run the application
+### 3. Configure TMDB API credentials
+
+Obtain an API key from The Movie Database:
+
+https://www.themoviedb.org/settings/api
+
+Create a local file named:
+
+```text
+.streamlit/secrets.toml
+```
+
+Add the following configuration:
+
+```toml
+TMDB_API_KEY = "your_api_key_here"
+```
+
+For Streamlit Community Cloud deployment, configure the same credential through the application Secrets settings.
+
+Never publish API credentials or commit the secrets file to GitHub.
+
+The API credential supports external features such as trailers and regional watch-provider information.
+
+### 4. Run the application
 
 ```bash
 streamlit run app.py
@@ -179,44 +348,72 @@ The application uses a cached TMDB dataset and precomputed recommendation assets
 
 ## 🧪 Testing and Validation
 
-The development notebook successfully completed 26 out of 26 functional tests.
+The original development notebook successfully completed 26 out of 26 functional tests.
 
-Validation included data integrity, rating ranges, sentiment scores, mood scores, filtering functionality, and recommendation-related behavior.
+Validation included:
 
-The 100% functional test pass rate refers to the implemented test suite and does not represent prediction accuracy.
+- Data integrity
+- Rating ranges
+- Sentiment scores
+- Mood scores
+- Filtering functionality
+- Recommendation-related behavior
+
+The 100% functional test pass rate refers to the original implemented test suite and does not represent prediction accuracy or comprehensive testing of subsequently added features.
 
 ## ⚠️ Limitations
 
 - The dataset contains a limited snapshot of 873 movies.
-- Movie information is not continuously updated.
+- The core movie dataset is not continuously updated.
 - Mood scores are estimated from movie metadata and may not reflect individual emotional reactions.
-- The recommendation system does not currently learn from long-term user behavior.
-- Watchlist information is stored only during the current session.
-- Model evaluation is based on a limited set of reference movies.
-- Benchmark results are generated in the development notebook rather than through live application evaluation.
+- Personalization is limited to the current application session.
+- User accounts and persistent profiles are not currently implemented.
+- The system does not learn from long-term user behavior.
+- Model evaluation is based on six reference movies.
+- Benchmark results are generated in the development notebook rather than through live user evaluation.
+- Trailer and streaming information depend on external API availability.
+- Streaming availability varies across countries and may change over time.
+- The proposed business model has not yet been commercially validated.
 
 ## 🔮 Future Improvements
 
-- Expand the movie database.
+### Technical Development
+
+- Expand and regularly update the movie database.
 - Introduce persistent user profiles and watchlists.
 - Incorporate collaborative filtering.
-- Improve semantic understanding using advanced language models.
-- Conduct user satisfaction studies.
-- Expand recommendation evaluation and benchmarking.
+- Improve semantic understanding through advanced language models.
 - Support multilingual natural language queries.
+- Develop group-based movie recommendations.
+- Expand automated testing for newly implemented features.
+
+### Business Development
+
+- Conduct user satisfaction studies.
+- Validate customer segments and market demand.
+- Evaluate recommendation acceptance and retention.
+- Test potential premium features.
+- Explore strategic partnerships.
+- Assess the feasibility of commercial deployment.
 
 ## 🎓 Academic Context
 
-Developed as an academic artificial intelligence and business analytics project at Mount Royal University.
+Developed for ENTR 3901: Harnessing Artificial Intelligence for Business at Mount Royal University, Fall 2026.
 
-The project demonstrates the practical integration of data science, natural language processing, recommendation systems, explainable artificial intelligence, and web application deployment.
+CineMood demonstrates the practical integration of data science, natural language processing, recommendation systems, explainable artificial intelligence, product design, business innovation, and web application deployment.
 
 ## 🎥 Data Attribution
 
-Movie metadata is provided by The Movie Database (TMDB).
+Movie metadata, images, and video information are provided by The Movie Database (TMDB).
+
+Watch-provider information is sourced through TMDB and powered by JustWatch.
+
+Movie trailers are accessed through external video platforms such as YouTube.
 
 This product uses the TMDB API but is not endorsed or certified by TMDB.
 
+CineMood is an academic project developed for educational purposes.
+
 ---
 
-**CineMood | Discover movies beyond ratings.**
+**CineMood | Your next movie starts with a feeling.**
