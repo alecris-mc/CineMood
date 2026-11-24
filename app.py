@@ -19,11 +19,34 @@ def load():
     return df,v,m,cosine_similarity(m)
 e.df,e.tfidf,e.tfidf_matrix,e.similarity_matrix=load()
 df=e.df
-st.title('🎬 CineMood')
-st.caption('Your next movie starts with a feeling.')
+st.markdown("""
+<style>
+.block-container {padding-top: 2.5rem; max-width: 1250px;}
+.cine-hero {padding: 2rem; border: 1px solid #493366; border-radius: 22px;
+background: linear-gradient(115deg,#201335,#171b2b 65%,#252044); margin-bottom: 1.5rem;}
+.cine-hero h1 {font-size: clamp(2rem,5vw,3.5rem); margin: .3rem 0; color: #f4f4f5;}
+.cine-hero p {color:#d1c4e9; margin:0;}
+.cine-kicker {color:#d8b4fe; font-size:.78rem; letter-spacing:.16em; font-weight:700;}
+[data-testid="stMetric"] {background:#171b2b; border:1px solid #343047; padding:1rem; border-radius:14px;}
+[data-testid="stImage"] img {border-radius:12px;}
+</style>
+<div class="cine-hero"><div class="cine-kicker">YOUR PERSONAL MOVIE DISCOVERY ENGINE</div>
+<h1>🎬 CineMood</h1><p>Your next movie starts with a feeling.</p></div>
+""", unsafe_allow_html=True)
 st.session_state.setdefault('watchlist',[])
 page=st.sidebar.radio('Explore',['Discover','Mood Match','Similar Movies','My Watchlist','Compare','Analytics'])
-st.sidebar.caption('Powered by TMDB • 873 movies')
+st.sidebar.caption(f'Powered by TMDB • {len(df):,} movies')
+st.sidebar.caption(f'♡ {len(st.session_state.watchlist)} saved movies')
+page_intro = {
+    'Discover': ('Discover your next favorite', 'Describe what you want to watch or refine your preferences.'),
+    'Mood Match': ('Find a movie for your mood', 'Choose the emotional experience you want to explore.'),
+    'Similar Movies': ('More movies like your favorites', 'Select a reference movie to explore related stories.'),
+    'My Watchlist': ('Your personal collection', 'Keep your discoveries together during this session.'),
+    'Compare': ('Compare your picks', 'Explore up to four movies side by side.'),
+    'Analytics': ('Inside the recommendation engine', 'Explore the dataset, model benchmark and quality checks.')
+}
+st.header(page_intro[page][0])
+st.caption(page_intro[page][1])
 labels={f'{r.title} ({r.year}) · {r.id}':i for i,r in df.iterrows()}
 
 def options(col):
@@ -34,13 +57,14 @@ def cards(rows, mood=None, reference=None, query=''):
         st.info('No movies match. Try relaxing a filter.'); return
     for j,(_,r) in enumerate(rows.iterrows()):
         with st.container(border=True):
-            a,b=st.columns([1,4])
+            a,b=st.columns([1,3])
             with a:
                 if isinstance(r.poster_url,str) and r.poster_url.startswith('https://'): st.image(r.poster_url)
             with b:
                 st.subheader(f'{r.title} ({r.year})')
+                if page != 'My Watchlist': st.caption(f'RECOMMENDATION {j+1:02d}')
                 st.caption(f'★ {r.vote_average:.1f}/10 · {r.runtime:g} min · {r.certification} · {r.original_language} · '+', '.join(r.genres))
-                st.write(r.overview)
+                st.write(r.overview) if isinstance(r.overview,str) and r.overview.strip() else st.caption('Synopsis unavailable.')
                 if 'match_score' in r:
                     st.write(f'**Match index: {r.match_score:.1f}/100**')
                     st.progress(float(np.clip(r.match_score/100,0,1)))
@@ -57,7 +81,7 @@ if page in ['Discover','Mood Match','Similar Movies']:
     prefs=e.parse_query(query); detected=prefs.pop('mood')
     mood=st.selectbox('Desired mood',[None]+e.MOOD_PROFILES,index=([None]+e.MOOD_PROFILES).index(detected) if detected in e.MOOD_PROFILES else (1 if page=='Mood Match' else 0),format_func=lambda x:x or 'Any')
     ref=st.selectbox('Reference movie',[None]+list(labels),format_func=lambda x:x or 'None',index=1 if page=='Similar Movies' else 0)
-    with st.expander('Advanced filters',expanded=True):
+    with st.expander('Advanced filters',expanded=False):
         c,d=st.columns(2)
         with c:
             years=st.slider('Year range',int(df.year.min()),int(df.year.max()),prefs['year_range'] or (int(df.year.min()),int(df.year.max())))
@@ -104,11 +128,17 @@ if page in ['Discover','Mood Match','Similar Movies']:
         for k,v in zip(['content_weight','mood_weight','quality_weight'],w): rows[k]=v
         rows['hybrid_score']=rows.content_score*w[0]+rows.mood_score*w[1]+rows.quality_score*w[2]; rows['match_score']=rows.hybrid_score*100
         rows=rows.nlargest(12,'hybrid_score')
+    st.divider()
+    st.header('Your recommendations')
+    st.caption(f'Showing {len(rows)} of {len(candidates)} eligible movies • {method}')
     cards(rows,mood,reference,query)
 elif page=='My Watchlist':
     st.caption('Saved for this browser session.')
     saved=df[df.id.isin(st.session_state.watchlist)]
-    cards(saved)
+    if saved.empty:
+        st.info('Your watchlist is empty. Add movies from Discover, Mood Match or Similar Movies.')
+    else:
+        cards(saved)
     if not saved.empty:
         st.header('Based on your watchlist')
         scores=e.similarity_matrix[saved.index].mean(axis=0)
@@ -122,12 +152,16 @@ elif page=='Compare':
         st.plotly_chart(px.bar(rows,x='title',y='vote_average',title='TMDB ratings'))
         st.caption('Missing budget or revenue is not treated as zero.')
 else:
+    k1,k2,k3=st.columns(3)
+    k1.metric('Movies',f'{len(df):,}')
+    k2.metric('Average TMDB rating',f'{df.vote_average.mean():.2f}/10')
+    k3.metric('Release years',f'{int(df.year.min())}–{int(df.year.max())}')
     st.header('Model benchmark')
     ev=pd.read_csv(A/'model_evaluation.csv'); st.dataframe(ev,hide_index=True)
-    st.plotly_chart(px.bar(ev.melt(id_vars='Model',value_vars=['Genre Relevance','Mood Compatibility','Diversity']),x='variable',y='value',color='Model',barmode='group'))
+    st.plotly_chart(px.bar(ev.melt(id_vars='Model',value_vars=['Genre Relevance','Mood Compatibility','Diversity']),x='variable',y='value',color='Model',barmode='group',template='plotly_dark',color_discrete_sequence=['#818CF8','#A855F7','#2DD4BF','#FBBF24'],title='Recommendation model comparison'))
     st.caption('Original notebook benchmark: six reference movies; proxy metrics, not user satisfaction.')
-    st.plotly_chart(px.histogram(df,x='dominant_mood',title='Emotional profiles'))
-    st.plotly_chart(px.histogram(df,x='year',title='Release year distribution'))
+    st.plotly_chart(px.histogram(df,x='dominant_mood',title='Emotional profiles',template='plotly_dark',color_discrete_sequence=['#A855F7']))
+    st.plotly_chart(px.histogram(df,x='year',title='Release year distribution',template='plotly_dark',color_discrete_sequence=['#818CF8']))
     st.header('Quality assurance'); st.dataframe(pd.read_csv(A/'quality_report.csv'),hide_index=True)
     st.dataframe(pd.read_csv(A/'data_quality.csv'),hide_index=True)
 st.divider(); st.caption('This product uses the TMDB API but is not endorsed or certified by TMDB. Mood scores are estimates from plot metadata, not guaranteed viewer reactions.')
