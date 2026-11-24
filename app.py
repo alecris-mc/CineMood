@@ -19,20 +19,35 @@ def load():
     return df,v,m,cosine_similarity(m)
 e.df,e.tfidf,e.tfidf_matrix,e.similarity_matrix=load()
 df=e.df
+import base64
+hero_path = A / 'Auroras sobre montañas violetas.png'
+hero_image = base64.b64encode(hero_path.read_bytes()).decode('ascii') if hero_path.is_file() else ''
 st.markdown("""
 <style>
-.block-container {padding-top: 2.5rem; max-width: 1250px;}
-.cine-hero {padding: 2rem; border: 1px solid #493366; border-radius: 22px;
-background: linear-gradient(115deg,#201335,#171b2b 65%,#252044); margin-bottom: 1.5rem;}
-.cine-hero h1 {font-size: clamp(2rem,5vw,3.5rem); margin: .3rem 0; color: #f4f4f5;}
-.cine-hero p {color:#d1c4e9; margin:0;}
-.cine-kicker {color:#d8b4fe; font-size:.78rem; letter-spacing:.16em; font-weight:700;}
-[data-testid="stMetric"] {background:#171b2b; border:1px solid #343047; padding:1rem; border-radius:14px;}
+.block-container {padding-top:2.5rem;max-width:1250px;}
+.cine-hero {overflow:hidden;border-radius:22px;background:#191426;border:1px solid #352746;margin-bottom:1.5rem;}
+.cine-landscape {display:block;width:100%;aspect-ratio: 21/9;object-fit:cover;}
+.cine-copy {padding:1.5rem 2rem 1.8rem;}
+.cine-kicker {color:#d8b4fe;font-size:.8rem;font-weight:700;letter-spacing:.06em;}
+.cine-hero h1 {color:#fff;font-size:clamp(2rem,4vw,3rem);margin:.4rem 0;}
+.cine-tagline {color:#f0e8ff;font-size:1.3rem;font-weight:600;margin:.5rem 0;}
+.cine-description {color:#d1c4e9;margin:.7rem 0;}
+.cine-stats {display:flex;flex-wrap:wrap;gap:2rem;margin-top:1rem;}
+.cine-stats strong {display:block;color:#c084fc;font-size:1.65rem;}
+.cine-stats span {color:#e2d9ed;font-size:.9rem;}
+[data-testid="stMetric"] {background:#171b2b;border:1px solid #343047;padding:1rem;border-radius:14px;}
 [data-testid="stImage"] img {border-radius:12px;}
+@media(max-width:600px){.cine-copy{padding:1rem;}.cine-stats{gap:1rem;}}
 </style>
-<div class="cine-hero"><div class="cine-kicker">YOUR PERSONAL MOVIE DISCOVERY ENGINE</div>
-<h1>🎬 CineMood</h1><p>Your next movie starts with a feeling.</p></div>
 """, unsafe_allow_html=True)
+hero_banner = f'<img class="cine-landscape" src="data:image/png;base64,{hero_image}" alt="Purple and blue auroras over mountains">' if hero_image else ''
+st.markdown(f"""<div class="cine-hero">{hero_banner}<div class="cine-copy">
+<div class="cine-kicker">YOUR PERSONAL MOVIE DISCOVERY ENGINE</div>
+<h1>🎬 CineMood</h1>
+<div class="cine-tagline">Your next movie starts with a feeling.</div>
+<div class="cine-description">Discover stories that match your mood, personality and taste.</div>
+<div class="cine-stats"><div><strong>{len(df):,}</strong><span>Movies</span></div><div><strong>AI</strong><span>Recommendations</span></div><div><strong>6</strong><span>Discovery tools</span></div></div>
+</div></div>""", unsafe_allow_html=True)
 st.session_state.setdefault('watchlist',[])
 page=st.sidebar.radio('Explore',['Discover','Mood Match','Similar Movies','My Watchlist','Compare','Analytics'])
 st.sidebar.caption(f'Powered by TMDB • {len(df):,} movies')
